@@ -13,11 +13,40 @@ public class LSLInletReader : MonoBehaviour
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
+
     private string[] electrodes = new string[] {
-         "Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4",
-         "O1",  "O2", "F7", "F8", "T7", "T8", "P7", "P8",
-         "Fz", "Cz", "Pz", "Fpz", "Oz", "AF7", "AF8", "FC5",
-         "FC6", "CP5", "CP6", "PO7", "PO8"};
+        "AF7",
+        "Fpz",
+        "F7	",
+        "Fz	",
+        "T7	",
+        "FC6",
+        "Fp1",
+        "F4	",
+        "C4	",
+        "Oz	",
+        "CP6",
+        "Cz	",
+        "PO8",
+        "CP5",
+        "O2	",
+        "O1	",
+        "P3	",
+        "P4	",
+        "P7	",
+        "P8	",
+        "Pz	",
+        "PO7",
+        "T8	",
+        "C3	",
+        "Fp2",
+        "F3	",
+        "F8	",
+        "FC5",
+        "AF8"
+        // A1
+    };
+    
     Electrode[] electrodeArray;
 
     // We need to find the stream somehow. You must provide a StreamType in editor or before this object is Started.
@@ -40,6 +69,8 @@ public class LSLInletReader : MonoBehaviour
         Debug.Log("Protocol version: " + LSL.LSL.protocol_version());
         Debug.Log("Library version: " + LSL.LSL.library_version());
 
+        ConnectElectrodes();
+
         StreamInfo[] streams = LSL.LSL.resolve_streams();
         Debug.Log(streams.Length);
 
@@ -49,21 +80,14 @@ public class LSLInletReader : MonoBehaviour
             resolver = new ContinuousResolver();
         StartCoroutine(ResolveExpectedStream());
 
-
-        // assign electrodes to electrodeArray by name
-        electrodeArray = new Electrode[electrodes.Length];
-        for (int i = 0; i < electrodes.Length; i++)
-        {
-            electrodeArray[i] = GameObject.Find(electrodes[i]).GetComponent<Electrode>();
-            if (electrodeArray[i] == null)
-            {
-                Debug.LogError("Could not find electrode: " + electrodes[i]);
-            }
-        }
     }
 
     IEnumerator ResolveExpectedStream()
     {
+        // example xml description of a stream
+        // <settings><comport>1</comport><samplingrate>250</samplingrate><channelcount>32</channelcount></settings><channels>
+        // <labels><label>AF7</label> ... <label>P1</label></labels></channels>
+
         var results = resolver.results();
         while (results.Length == 0)
         {
@@ -80,6 +104,32 @@ public class LSLInletReader : MonoBehaviour
         channel_count = inlet.info().channel_count();
         data_buffer = new float[buf_samples, channel_count];
         timestamp_buffer = new double[buf_samples];
+
+        ConnectElectrodes(inlet.info());
+    }
+
+    void ConnectElectrodes(StreamInfo info = null)
+    {
+        if (info != null)
+        {
+            // retrieve electrode names from stream info
+            var xml = info.desc();
+
+            int i = 0;
+            var labels = xml.child("labels");
+            var label = labels.first_child();
+            while (!label.next_sibling().empty())
+                electrodes[i++] = label.value();
+        }
+
+        // assign electrodes to electrodeArray by name
+        electrodeArray = new Electrode[electrodes.Length];
+        for (int i = 0; i < electrodes.Length; i++)
+        {
+            electrodeArray[i] = GameObject.Find(electrodes[i].Trim()).GetComponent<Electrode>();
+            if (electrodeArray[i] == null)
+                Debug.LogError("Could not find electrode: " + electrodes[i]);
+        }
     }
 
     // Update is called once per frame
