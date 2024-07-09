@@ -60,10 +60,15 @@ public class LSLInletReader : MonoBehaviour
     private StreamInlet inlet;
 
     // We need buffers to pass to LSL when pulling data.
-    private float[,] data_buffer;  // Note it's a 2D Array, not array of arrays. Each element has to be indexed specifically, no frames/columns.
-    private double[] timestamp_buffer;
-    private int channel_count = -1;
+    float[,] data_buffer;  // Note it's a 2D Array, not array of arrays. Each element has to be indexed specifically, no frames/columns.
+    double[] timestamp_buffer;
+    int channel_count = -1;
+    float[] channels_min;
+    float[] channels_max;
 
+    public bool moving_average = true;
+    public float moving_average_reactivity = 0.9f;
+    
     void Start()
     {
         Debug.Log("Protocol version: " + LSL.LSL.protocol_version());
@@ -79,11 +84,11 @@ public class LSLInletReader : MonoBehaviour
         else
             resolver = new ContinuousResolver();
         StartCoroutine(ResolveExpectedStream());
-
     }
 
     IEnumerator ResolveExpectedStream()
     {
+        Debug.Log("ResolveExpectedStream");
         // example xml description of a stream
         // <settings><comport>1</comport><samplingrate>250</samplingrate><channelcount>32</channelcount></settings><channels>
         // <labels><label>AF7</label> ... <label>P1</label></labels></channels>
@@ -100,17 +105,25 @@ public class LSLInletReader : MonoBehaviour
 
         // Prepare pull_chunk buffer
         int buf_samples = (int)Mathf.Ceil((float)(inlet.info().nominal_srate() * max_chunk_duration));
-        // Debug.Log("Allocating buffers to receive " + buf_samples + " samples.");
+        Debug.Log("Allocating buffers to receive " + buf_samples + " samples.");
         channel_count = inlet.info().channel_count();
+        Debug.Log("channels: " + channel_count);
         data_buffer = new float[buf_samples, channel_count];
         timestamp_buffer = new double[buf_samples];
+        channels_max = new float[channel_count];
+        channels_min = new float[channel_count];
+        for (var i = 0; i < channel_count; i++)
+        {
+            channels_max[i] = Mathf.NegativeInfinity;
+            channels_min[i] = Mathf.Infinity;
+        }
 
         ConnectElectrodes(inlet.info());
     }
 
     void ConnectElectrodes(StreamInfo info = null)
     {
-        if (info != null)
+        /*if (info != null)
         {
             // retrieve electrode names from stream info
             var xml = info.desc();
@@ -121,6 +134,7 @@ public class LSLInletReader : MonoBehaviour
             while (!label.next_sibling().empty())
                 electrodes[i++] = label.value();
         }
+        */
 
         // assign electrodes to electrodeArray by name
         electrodeArray = new Electrode[electrodes.Length];
@@ -139,19 +153,50 @@ public class LSLInletReader : MonoBehaviour
         {
             int samples_returned = inlet.pull_chunk(data_buffer, timestamp_buffer);
             Debug.Log("Samples returned: " + samples_returned);
-            //if (samples_returned > 0)
-            for (int i = 0; i < electrodeArray.Length; i++)
-            {
-                if (i >= channel_count)
-                    break;
+            string eegs = "eegs: ";
+            for (int j = 0; j < samples_returned; j++)
+                for (int i = 0; i < electrodeArray.Length; i++)
+                {
+                    if (moving_average)
+                    {
+                        var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
+                        var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
+                        if (channels_max[i] < -65535)
+                            channels_max[i] = max;
+                        else                  
+                            channels_max[i] = Mathf.Lerp(channels_max[i], max, moving_average_reactivity);
+                        if (channels_min[i] > 65535)
+                            channels_min[i] = min;
+                        else                  
+                            channels_min[i] = Mathf.Lerp(channels_min[i], min, moving_average_reactivity);      
+                    }
+                    else
+                    {
+                        channels_max[i] = Mathf.Max(channels_max[i], data_buffer[j, i]);
+                        channels_min[i] = Mathf.Min(channels_min[i], data_buffer[j, i]);
+                    }
+                }
 
-                // for now just take the last sample for each eeg channel
-                float eeg = data_buffer[samples_returned - 1, i];
-                eeg = (eeg - eegExpectedMean) / eegExpectedVariance;
-                eeg *= electrodeAdjust[i];
-                // lerp color between red and greeen based on eeg value
-                electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+            if (samples_returned > 0)
+            {
+                for (int i = 0; i < electrodeArray.Length; i++)
+                {
+                    if (i >= channel_count)
+                        break;
+
+                    // for now just take the last sample for each eeg channel
+                    float eeg = data_buffer[samples_returned - 1, i];
+
+                    eeg = Mathf.InverseLerp(channels_min[i], channels_max[i], eeg);
+                    eeg = (eeg - eegExpectedMean) / eegExpectedVariance;
+
+                    eegs += " " + eeg;
+                    eeg *= electrodeAdjust[i];
+                    // lerp color between red and greeen based on eeg value
+                    electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+                }
             }
+            //Debug.Log("Mooooo: " + eegs);
         }
         else if (generateRandomEEGifNoStream)
         {
