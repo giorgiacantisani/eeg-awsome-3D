@@ -5,8 +5,11 @@ using LSL;
 
 public class LSLInletReader : MonoBehaviour
 {
-    public float eegExpectedMean = 0.0f;
-    public float eegExpectedVariance = 32768.0f;
+    public bool movingAverage = true;
+    public float movingAverageReactivity = 0.9f;
+
+    public float EEGExpectedMean = 0.5f;
+    public float EEGExpectedVariance = 0.25f;
     public float[] electrodeAdjust = new float[] { 
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -52,6 +55,7 @@ public class LSLInletReader : MonoBehaviour
     // We need to find the stream somehow. You must provide a StreamType in editor or before this object is Started.
     public string StreamType = "EEG";
     ContinuousResolver resolver;
+    public bool retrieveElectrodeNamesFromStream = false;
     public bool generateRandomEEGifNoStream = true;
 
     double max_chunk_duration = 0.2;  // Duration, in seconds, of buffer passed to pull_chunk. This must be > than average frame interval.
@@ -65,9 +69,6 @@ public class LSLInletReader : MonoBehaviour
     int channel_count = -1;
     float[] channels_min;
     float[] channels_max;
-
-    public bool moving_average = true;
-    public float moving_average_reactivity = 0.9f;
     
     void Start()
     {
@@ -123,7 +124,7 @@ public class LSLInletReader : MonoBehaviour
 
     void ConnectElectrodes(StreamInfo info = null)
     {
-        /*if (info != null)
+        if (retrieveElectrodeNamesFromStream && info != null)
         {
             // retrieve electrode names from stream info
             var xml = info.desc();
@@ -134,7 +135,6 @@ public class LSLInletReader : MonoBehaviour
             while (!label.next_sibling().empty())
                 electrodes[i++] = label.value();
         }
-        */
 
         // assign electrodes to electrodeArray by name
         electrodeArray = new Electrode[electrodes.Length];
@@ -152,23 +152,23 @@ public class LSLInletReader : MonoBehaviour
         if (inlet != null)
         {
             int samples_returned = inlet.pull_chunk(data_buffer, timestamp_buffer);
-            Debug.Log("Samples returned: " + samples_returned);
-            string eegs = "eegs: ";
+            // Debug.Log("Samples returned: " + samples_returned);
+            // string eegs = "eegs: ";
             for (int j = 0; j < samples_returned; j++)
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
-                    if (moving_average)
+                    if (movingAverage)
                     {
                         var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
                         var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
                         if (channels_max[i] < -65535)
                             channels_max[i] = max;
                         else                  
-                            channels_max[i] = Mathf.Lerp(channels_max[i], max, moving_average_reactivity);
+                            channels_max[i] = Mathf.Lerp(channels_max[i], max, movingAverageReactivity);
                         if (channels_min[i] > 65535)
                             channels_min[i] = min;
                         else                  
-                            channels_min[i] = Mathf.Lerp(channels_min[i], min, moving_average_reactivity);      
+                            channels_min[i] = Mathf.Lerp(channels_min[i], min, movingAverageReactivity);      
                     }
                     else
                     {
@@ -188,9 +188,9 @@ public class LSLInletReader : MonoBehaviour
                     float eeg = data_buffer[samples_returned - 1, i];
 
                     eeg = Mathf.InverseLerp(channels_min[i], channels_max[i], eeg);
-                    eeg = (eeg - eegExpectedMean) / eegExpectedVariance;
+                    eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
 
-                    eegs += " " + eeg;
+                    // eegs += " " + eeg;
                     eeg *= electrodeAdjust[i];
                     // lerp color between red and greeen based on eeg value
                     electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
@@ -202,8 +202,8 @@ public class LSLInletReader : MonoBehaviour
         {
             for (int i = 0; i < electrodeArray.Length; i++)
             {
-                float eeg = Random.Range(-32768.0f, 32768.0f);
-                eeg = (eeg - eegExpectedMean) / eegExpectedVariance;
+                float eeg = Random.Range(0.0f, 1.0f);
+                eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
                 eeg *= electrodeAdjust[i];
                 // lerp color between red and greeen based on eeg value
                 electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
