@@ -158,6 +158,7 @@ public class LSLInletReader : MonoBehaviour
             var label = labels.first_child();
             while (!label.next_sibling().empty())
                 electrodes[i++] = label.value();
+            System.Array.Resize(ref electrodes, i);
         }
 
         Debug.Log("Electrodes: " + System.String.Join(" ", electrodes));
@@ -201,6 +202,9 @@ public class LSLInletReader : MonoBehaviour
 
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
+                    if (i >= channel_count)
+                        break;
+
                     if (movingAverage)
                     {
                         var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
@@ -297,6 +301,8 @@ public class LSLInletReader : MonoBehaviour
         kernelHandle = eegDisplayCS.FindKernel("CSPlotPixel");
         var amplitudeY = 30;
         var displayChannels = Mathf.Min(electrodeArray.Length, eegChannelsToDisplay);
+        if (channel_count > 0)
+            displayChannels = Mathf.Min(displayChannels, channel_count);
         eegDisplayCS.SetInt("AmplitudeY", amplitudeY);
         eegDisplayCS.SetInt("OffsetY", (int)(256/displayChannels/(1.0f+eegChannelOverlap)));
         eegDisplayCS.SetInt("InputCount", displayChannels);
@@ -307,7 +313,7 @@ public class LSLInletReader : MonoBehaviour
         eegDisplayCS.Dispatch(kernelHandle, 1, amplitudeY, 1);
 
         eegDisplayIndex++; if (eegDisplayIndex >= eegDisplayRT.width) eegDisplayIndex = 0;
-        for (int i = 0; i < electrodeArray.Length; i++)
+        for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
     }
 }
