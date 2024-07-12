@@ -26,3 +26,6 @@ Brain models (Dean Lavery)
 * https://sketchfab.com/3d-models/brain-areas-d64608a3978b47d8a39c5a15795ca8c4
 * https://sketchfab.com/3d-models/brain-project-24ec03412dd8432bb0d3e750a72608e0
 License: CC Attribution
+
+
+python -m pylsl.examples.SendDataAdvanced 
