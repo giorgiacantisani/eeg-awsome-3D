@@ -2469,6 +2469,7 @@ MonoBehaviour:
   generateRandomEEGifNoStream: 1
   eegChannelsToDisplay: 16
   eegChannelOverlap: 0.1
+  eegDisplayInvert: 1
   eegDisplayCS: {fileID: 7200000, guid: 99ff3af921d524daabeaabb07695a058, type: 3}
   eegDisplayRT: {fileID: 8400000, guid: 0b572173504cb47f0b3d4607fef370d5, type: 2}
 --- !u!1001 &1429207323

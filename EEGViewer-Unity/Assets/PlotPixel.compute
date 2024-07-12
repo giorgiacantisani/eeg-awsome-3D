@@ -12,6 +12,7 @@ int WriteX;
 int AmplitudeY;
 int OffsetY;
 float4 Color;
+int Invert;
 
 [numthreads(32,16,1)]
 void CSPlotPixel (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
@@ -23,7 +24,7 @@ void CSPlotPixel (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
     xy.x = WriteX;
     xy.y = AmplitudeY * val + OffsetY * id.x - (val-val0) * gid.y;
     if (id.x < InputCount)
-        Result[xy] = Color - float4(id.xxxx%int4(11,7,9,1))*float4(0.1,0.3,0.2,0)*0.33; //float4((id.xxxx%int4(12,43,5,7)))*float4(0.1,0.2,0.3,0);
+        Result[xy] = Color - (Invert>0?-1:1)*float4(id.xxxx%int4(11,7,9,1))*float4(0.1,0.3,0.2,0)*0.33; //float4((id.xxxx%int4(12,43,5,7)))*float4(0.1,0.2,0.3,0);
 }
 
 [numthreads(32,1,1)]
@@ -37,5 +38,8 @@ void CSPlotBar (uint3 id : SV_DispatchThreadID)
 void CSPlotFade (uint3 id : SV_DispatchThreadID)
 {
     uint2 xy = uint2((WriteX+id.y)%1024, id.x);
-    Result[xy] *= pow(id.y/32.0, 0.5);
+    if (Invert > 0)
+        Result[xy] += pow((id.y)/1024.0, 0.8);
+    else
+        Result[xy] *= pow(id.y/32.0, 0.5);
 }

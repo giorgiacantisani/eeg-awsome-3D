@@ -72,6 +72,7 @@ public class LSLInletReader : MonoBehaviour
 
     public int eegChannelsToDisplay = 16;
     public float eegChannelOverlap = 0.25f;
+    public bool eegDisplayInvert = false;
 
     public ComputeShader eegDisplayCS;
     public RenderTexture eegDisplayRT;
@@ -254,23 +255,24 @@ public class LSLInletReader : MonoBehaviour
             eegDisplayRT.enableRandomWrite = true;
             eegDisplayRT.Create();
         }
- 
+
+        eegDisplayCS.SetInt("Invert", eegDisplayInvert ? 1: 0); 
         eegDisplayCS.SetInt("WriteX", eegDisplayIndex);
         eegDisplayCS.SetInt("TextureHeight", eegDisplayRT.height);
 
         int kernelHandle = eegDisplayCS.FindKernel("CSPlotFade");
-        eegDisplayCS.SetVector("Color", Color.black);
+        eegDisplayCS.SetVector("Color", eegDisplayInvert ? Color.white : Color.black);
         eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
         eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
 
         kernelHandle = eegDisplayCS.FindKernel("CSPlotBar");
         eegDisplayCS.SetInt("WriteX", eegDisplayIndex+1);
-        eegDisplayCS.SetVector("Color", Color.white);
+        eegDisplayCS.SetVector("Color", eegDisplayInvert ? Color.black : Color.white);
         eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
         eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
 
         eegDisplayCS.SetInt("WriteX", eegDisplayIndex);
-        eegDisplayCS.SetVector("Color", Color.black);
+        eegDisplayCS.SetVector("Color", eegDisplayInvert ? Color.white : Color.black);
         eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
         eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
 
@@ -282,7 +284,7 @@ public class LSLInletReader : MonoBehaviour
         eegDisplayCS.SetInt("InputCount", displayChannels);
         eegDisplayCS.SetFloats("Inputs", channels_eeg);
         eegDisplayCS.SetFloats("InputsPrev", channels_eeg_prev);
-        eegDisplayCS.SetVector("Color", Color.white);
+        eegDisplayCS.SetVector("Color", eegDisplayInvert ? Color.black : Color.white);
         eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
         eegDisplayCS.Dispatch(kernelHandle, 1, amplitudeY, 1);
 
