@@ -69,9 +69,18 @@ public class LSLInletReader : MonoBehaviour
     int channel_count = -1;
     float[] channels_min;
     float[] channels_max;
+
+    public int eegChannelsToDisplay = 16;
+    public float eegChannelOverlap = 0.25f;
+
+    public ComputeShader eegDisplayCS;
+    public RenderTexture eegDisplayRT;
+    int eegDisplayIndex = 0;
+    float[] channels_eeg = new float[32];
+    float[] channels_eeg_prev = new float[32];
     
     void Start()
-    {
+    {               
         Debug.Log("Protocol version: " + LSL.LSL.protocol_version());
         Debug.Log("Library version: " + LSL.LSL.library_version());
 
@@ -109,10 +118,12 @@ public class LSLInletReader : MonoBehaviour
         timestamp_buffer = new double[buf_samples];
         channels_max = new float[channel_count];
         channels_min = new float[channel_count];
+        channels_eeg = new float[channel_count];
         for (var i = 0; i < channel_count; i++)
         {
             channels_max[i] = Mathf.NegativeInfinity;
             channels_min[i] = Mathf.Infinity;
+            channels_eeg[i] = 0;
         }
 
         ConnectElectrodes(inlet.info());
@@ -210,6 +221,9 @@ public class LSLInletReader : MonoBehaviour
                     // lerp color between red and greeen based on eeg value
                     if (electrodeArray[i])
                         electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+
+                    // vis
+                    channels_eeg[i] = eeg/2+0.5f;
                 }
             }
             //Debug.Log("Mooooo: " + eegs);
@@ -218,13 +232,62 @@ public class LSLInletReader : MonoBehaviour
         {
             for (int i = 0; i < electrodeArray.Length; i++)
             {
-                float eeg = Random.Range(0.0f, 1.0f);
+                float eeg = Mathf.Sin(i + Time.time*i)/4 + 0.5f;// Random.Range(0.0f, 1.0f);
+                // float eeg = Random.Range(0.0f, 1.0f)*EEGExpectedVariance+EEGExpectedMean;
                 eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
                 eeg *= electrodeAdjust[i];
                 // lerp color between red and greeen based on eeg value
                 if (electrodeArray[i])
                     electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+
+                // vis
+                channels_eeg[i] = eeg/2+0.5f;
             }
         }
+
+
+
+        // Display EEG
+        if (eegDisplayRT == null)
+        {
+            eegDisplayRT = new RenderTexture(1024, 256, 24);
+            eegDisplayRT.enableRandomWrite = true;
+            eegDisplayRT.Create();
+        }
+ 
+        eegDisplayCS.SetInt("WriteX", eegDisplayIndex);
+        eegDisplayCS.SetInt("TextureHeight", eegDisplayRT.height);
+
+        int kernelHandle = eegDisplayCS.FindKernel("CSPlotFade");
+        eegDisplayCS.SetVector("Color", Color.black);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
+
+        kernelHandle = eegDisplayCS.FindKernel("CSPlotBar");
+        eegDisplayCS.SetInt("WriteX", eegDisplayIndex+1);
+        eegDisplayCS.SetVector("Color", Color.white);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
+
+        eegDisplayCS.SetInt("WriteX", eegDisplayIndex);
+        eegDisplayCS.SetVector("Color", Color.black);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, eegDisplayRT.height/32, 1, 1);
+
+        kernelHandle = eegDisplayCS.FindKernel("CSPlotPixel");
+        var amplitudeY = 30;
+        var displayChannels = Mathf.Min(electrodeArray.Length, eegChannelsToDisplay);
+        eegDisplayCS.SetInt("AmplitudeY", amplitudeY);
+        eegDisplayCS.SetInt("OffsetY", (int)(256/displayChannels/(1.0f+eegChannelOverlap)));
+        eegDisplayCS.SetInt("InputCount", displayChannels);
+        eegDisplayCS.SetFloats("Inputs", channels_eeg);
+        eegDisplayCS.SetFloats("InputsPrev", channels_eeg_prev);
+        eegDisplayCS.SetVector("Color", Color.white);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", eegDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, 1, amplitudeY, 1);
+
+        eegDisplayIndex++; if (eegDisplayIndex >= eegDisplayRT.width) eegDisplayIndex = 0;
+        for (int i = 0; i < electrodeArray.Length; i++)
+            channels_eeg_prev[i] = channels_eeg[i];
     }
 }

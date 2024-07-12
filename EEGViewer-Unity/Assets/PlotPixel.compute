@@ -1,0 +1,41 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSPlotPixel
+#pragma kernel CSPlotBar
+#pragma kernel CSPlotFade
+
+// Create a RenderTexture with enableRandomWrite flag and set it with cs.SetTexture
+RWTexture2D<float4> Result;
+float4 Inputs[32]; // must be float4, can not be just array of float
+float4 InputsPrev[32]; // must be float4, can not be just array of float
+int InputCount;
+int WriteX;
+int AmplitudeY;
+int OffsetY;
+float4 Color;
+
+[numthreads(32,16,1)]
+void CSPlotPixel (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
+{
+    float val  = Inputs[id.x/4][id.x%4]; // "unpack" float4 array into float
+    float val0 = InputsPrev[id.x/4][id.x%4]; // "unpack" float4 array into float
+
+    int2 xy;
+    xy.x = WriteX;
+    xy.y = AmplitudeY * val + OffsetY * id.x - (val-val0) * gid.y;
+    if (id.x < InputCount)
+        Result[xy] = Color - float4(id.xxxx%int4(11,7,9,1))*float4(0.1,0.3,0.2,0)*0.33; //float4((id.xxxx%int4(12,43,5,7)))*float4(0.1,0.2,0.3,0);
+}
+
+[numthreads(32,1,1)]
+void CSPlotBar (uint3 id : SV_DispatchThreadID)
+{
+    uint2 xy = uint2(WriteX+id.y, id.x);
+    Result[xy] = Color;
+}
+
+[numthreads(32,32,1)]
+void CSPlotFade (uint3 id : SV_DispatchThreadID)
+{
+    uint2 xy = uint2((WriteX+id.y)%1024, id.x);
+    Result[xy] *= pow(id.y/32.0, 0.5);
+}
