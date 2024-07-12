@@ -5,6 +5,9 @@ using LSL;
 
 public class LSLInletReader : MonoBehaviour
 {
+    public Gradient electrodeColors;
+    public bool useColorGradient = false;
+
     public bool movingAverage = true;
     public float movingAverageReactivity = 0.9f;
 
@@ -176,6 +179,14 @@ public class LSLInletReader : MonoBehaviour
         }
     }
 
+    Color MixEEGColors(float eeg)
+    {
+        if (useColorGradient)
+            return electrodeColors.Evaluate(eeg/2.0f+0.5f);
+        else
+            return Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+    }
+
     // Update is called once per frame
     void Update()
     {
@@ -228,7 +239,7 @@ public class LSLInletReader : MonoBehaviour
                     eeg *= electrodeAdjust[i];
                     // lerp color between red and greeen based on eeg value
                     if (electrodeArray[i])
-                        electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+                        electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
 
                     // vis
                     channels_eeg[i] = eeg/2+0.5f;
@@ -246,7 +257,7 @@ public class LSLInletReader : MonoBehaviour
                 eeg *= electrodeAdjust[i];
                 // lerp color between red and greeen based on eeg value
                 if (electrodeArray[i])
-                    electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+                    electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
 
                 // vis
                 channels_eeg[i] = eeg/2+0.5f;
