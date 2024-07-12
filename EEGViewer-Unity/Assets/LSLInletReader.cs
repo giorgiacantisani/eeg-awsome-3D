@@ -95,6 +95,13 @@ public class LSLInletReader : MonoBehaviour
         else
             resolver = new ContinuousResolver();
         StartCoroutine(ResolveExpectedStream());
+
+
+        // clear EEG display
+        RenderTexture rt = RenderTexture.active;
+        RenderTexture.active = eegDisplayRT;
+        GL.Clear(true, true, eegDisplayInvert ? Color.white : Color.black);
+        RenderTexture.active = rt;
     }
 
     IEnumerator ResolveExpectedStream()
