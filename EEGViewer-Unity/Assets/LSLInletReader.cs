@@ -20,31 +20,31 @@ public class LSLInletReader : MonoBehaviour
     private string[] electrodes = new string[] {
         "AF7",
         "Fpz",
-        "F7	",
-        "Fz	",
-        "T7	",
+        "F7 ",
+        "Fz ",
+        "T7 ",
         "FC6",
         "Fp1",
-        "F4	",
-        "C4	",
-        "Oz	",
+        "F4 ",
+        "C4 ",
+        "Oz ",
         "CP6",
-        "Cz	",
+        "Cz ",
         "PO8",
         "CP5",
-        "O2	",
-        "O1	",
-        "P3	",
-        "P4	",
-        "P7	",
-        "P8	",
-        "Pz	",
+        "O2 ",
+        "O1 ",
+        "P3 ",
+        "P4 ",
+        "P7 ",
+        "P8 ",
+        "Pz ",
         "PO7",
-        "T8	",
-        "C3	",
+        "T8 ",
+        "C3 ",
         "Fp2",
-        "F3	",
-        "F8	",
+        "F3 ",
+        "F8 ",
         "FC5",
         "AF8"
         // A1
@@ -90,10 +90,6 @@ public class LSLInletReader : MonoBehaviour
     IEnumerator ResolveExpectedStream()
     {
         Debug.Log("ResolveExpectedStream");
-        // example xml description of a stream
-        // <settings><comport>1</comport><samplingrate>250</samplingrate><channelcount>32</channelcount></settings><channels>
-        // <labels><label>AF7</label> ... <label>P1</label></labels></channels>
-
         var results = resolver.results();
         while (results.Length == 0)
         {
@@ -126,8 +122,14 @@ public class LSLInletReader : MonoBehaviour
     {
         if (retrieveElectrodeNamesFromStream && info != null)
         {
+            // example xml description of a stream
+            // <settings><comport>1</comport><samplingrate>250</samplingrate><channelcount>32</channelcount></settings><channels>
+            // <labels><label>AF7</label> ... <label>P1</label></labels></channels>
+
             // retrieve electrode names from stream info
             var xml = info.desc();
+
+            Debug.Log("XML from LSL stream: " + xml.value());
 
             int i = 0;
             var labels = xml.child("labels");
@@ -136,13 +138,22 @@ public class LSLInletReader : MonoBehaviour
                 electrodes[i++] = label.value();
         }
 
+        Debug.Log("Electrodes: " + System.String.Join(" ", electrodes));
+
         // assign electrodes to electrodeArray by name
         electrodeArray = new Electrode[electrodes.Length];
         for (int i = 0; i < electrodes.Length; i++)
         {
-            electrodeArray[i] = GameObject.Find(electrodes[i].Trim()).GetComponent<Electrode>();
+            var go = GameObject.Find(electrodes[i].Trim());
+            if (go == null)
+            {
+                Debug.LogWarning("Could not find electrode: " + electrodes[i]);
+                continue;
+            }
+
+            electrodeArray[i] = go.GetComponent<Electrode>();
             if (electrodeArray[i] == null)
-                Debug.LogError("Could not find electrode: " + electrodes[i]);
+                Debug.LogError("Found object, but it has no Electrode component: " + electrodes[i]);
         }
     }
 
@@ -155,6 +166,9 @@ public class LSLInletReader : MonoBehaviour
             // Debug.Log("Samples returned: " + samples_returned);
             // string eegs = "eegs: ";
             for (int j = 0; j < samples_returned; j++)
+            {
+                // double time = timestamp_buffer[j];
+
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
                     if (movingAverage)
@@ -176,6 +190,7 @@ public class LSLInletReader : MonoBehaviour
                         channels_min[i] = Mathf.Min(channels_min[i], data_buffer[j, i]);
                     }
                 }
+            }
 
             if (samples_returned > 0)
             {
@@ -193,7 +208,8 @@ public class LSLInletReader : MonoBehaviour
                     // eegs += " " + eeg;
                     eeg *= electrodeAdjust[i];
                     // lerp color between red and greeen based on eeg value
-                    electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+                    if (electrodeArray[i])
+                        electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
                 }
             }
             //Debug.Log("Mooooo: " + eegs);
@@ -206,7 +222,8 @@ public class LSLInletReader : MonoBehaviour
                 eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
                 eeg *= electrodeAdjust[i];
                 // lerp color between red and greeen based on eeg value
-                electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+                if (electrodeArray[i])
+                    electrodeArray[i].fx.GetComponent<Light>().color = Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
             }
         }
     }
