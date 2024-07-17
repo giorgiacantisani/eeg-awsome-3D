@@ -12,6 +12,10 @@ public class LSLInletReader : MonoBehaviour
     public bool movingAverage = true;
     public float movingAverageReactivity = 0.9f;
 
+    public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorA = new float[32];
+
     public float EEGExpectedMean = 0.5f;
     public float EEGExpectedVariance = 0.25f;
     public float[] electrodeAdjust = new float[] { 
@@ -209,7 +213,20 @@ public class LSLInletReader : MonoBehaviour
 
                     if(shortFourier)
                     {
-                        //float realComponent = data_buffer[j,i] * Mathf.Sin(timestamp_buffer[j] * 20f * 2f * Mathf.Pi);
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
+
+                        electrodeColorA[i] = electrodeColorA[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+
+                        electrodeColorB[i] = electrodeColorB[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+
+                        electrodeColorC[i] = electrodeColorC[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
                     }
                     else if (movingAverage)
                     {
@@ -321,5 +338,9 @@ public class LSLInletReader : MonoBehaviour
         eegDisplayIndex++; if (eegDisplayIndex >= eegDisplayRT.width) eegDisplayIndex = 0;
         for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
+
+        Debug.Log(electrodeColorA[5]);
+        Debug.Log(electrodeColorB[5]);
+        Debug.Log(electrodeColorC[5]);
     }
 }
