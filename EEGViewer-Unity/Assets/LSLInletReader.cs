@@ -7,6 +7,7 @@ public class LSLInletReader : MonoBehaviour
 {
     public Gradient electrodeColors;
     public bool useColorGradient = false;
+    public bool shortFourier = true;
 
     public bool movingAverage = true;
     public float movingAverageReactivity = 0.9f;
@@ -185,7 +186,7 @@ public class LSLInletReader : MonoBehaviour
         if (useColorGradient)
             return electrodeColors.Evaluate(eeg/2.0f+0.5f);
         else
-            return Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+            return .4f*Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
     }
 
     // Update is called once per frame
@@ -202,10 +203,15 @@ public class LSLInletReader : MonoBehaviour
 
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
+                    if(i==0)
                     if (i >= channel_count)
                         break;
 
-                    if (movingAverage)
+                    if(shortFourier)
+                    {
+                        //float realComponent = data_buffer[j,i] * Mathf.Sin(timestamp_buffer[j] * 20f * 2f * Mathf.Pi);
+                    }
+                    else if (movingAverage)
                     {
                         var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
                         var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
