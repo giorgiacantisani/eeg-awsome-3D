@@ -19,7 +19,6 @@ public class LSLInletReader : MonoBehaviour
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 
-
     private string[] electrodes = new string[] {
         "AF7",
         "Fpz",
@@ -112,10 +111,18 @@ public class LSLInletReader : MonoBehaviour
 
     public ComputeShader eegDisplayCS;
     public RenderTexture eegDisplayRT;
+    public RenderTexture electrodeDisplayRT;
     int eegDisplayIndex = 0;
+    int electrodeDisplayIndex = 0;    
     float[] channels_eeg = new float[32];
     float[] channels_eeg_prev = new float[32];
+    Vector4[] electrode_colors = new Vector4[32*32];
+    // float[] electrode_colors = new float[32*32*4];
     
+
+    public int debugElectrode = -1;
+
+
     void Start()
     {               
         Debug.Log("Protocol version: " + LSL.LSL.protocol_version());
@@ -210,6 +217,19 @@ public class LSLInletReader : MonoBehaviour
             electrodeArray[i] = go.GetComponent<Electrode>();
             if (electrodeArray[i] == null)
                 Debug.LogError("Found object, but it has no Electrode component: " + electrodes[i]);
+
+            var indicator = electrodeArray[i].indicator;
+            if (indicator)
+                foreach (var r in indicator.GetComponentsInChildren<Renderer>())
+                {
+                    var props = new MaterialPropertyBlock();
+                    props.SetFloat("_Electrode", i);
+                    r.SetPropertyBlock(props);
+                    // var r = child.GetComponent<Renderer>();
+                    // if (r)
+                    // {
+                    // }
+                }
         }
     }
 
@@ -268,12 +288,15 @@ public class LSLInletReader : MonoBehaviour
 
                     // for now just take the last sample for each eeg channel
                     float eeg = data_buffer[samples_returned - 1, i];
-
                     eeg = Mathf.InverseLerp(channels_min[i], channels_max[i], eeg);
                     eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
 
                     // eegs += " " + eeg;
                     eeg *= electrodeAdjust[i];
+
+                    if (debugElectrode >= 0 && i != debugElectrode)
+                        eeg = 0;
+
                     // lerp color between red and greeen based on eeg value
                     if (electrodeArray[i])
                         electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
@@ -288,10 +311,15 @@ public class LSLInletReader : MonoBehaviour
         {
             for (int i = 0; i < electrodeArray.Length; i++)
             {
-                float eeg = Mathf.Sin(i + Time.time*i)/4 + 0.5f;// Random.Range(0.0f, 1.0f);
-                // float eeg = Random.Range(0.0f, 1.0f)*EEGExpectedVariance+EEGExpectedMean;
+                float eeg = Mathf.Sin(i + Time.time*i)/4 + 0.5f;
                 eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
                 eeg *= electrodeAdjust[i];
+
+                // eeg = Mathf.Sin(Time.time*2);
+                // eeg = Random.Range(0.0f, 1.0f);
+
+                if (debugElectrode >= 0 && i != debugElectrode)
+                    eeg = 0;
                 // lerp color between red and greeen based on eeg value
                 if (electrodeArray[i])
                     electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
@@ -348,5 +376,38 @@ public class LSLInletReader : MonoBehaviour
         eegDisplayIndex++; if (eegDisplayIndex >= eegDisplayRT.width) eegDisplayIndex = 0;
         for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
+        
+        // Display electrode indicators
+        if (electrodeDisplayRT == null)
+        {
+            electrodeDisplayRT = new RenderTexture(32, 32, 24);
+            electrodeDisplayRT.enableRandomWrite = true;
+            electrodeDisplayRT.Create();
+        }
+
+        var indicatorChannels = electrodeArray.Length;
+        if (channel_count > 0)
+            indicatorChannels = Mathf.Min(indicatorChannels, channel_count);
+
+        for (int i = 0; i < indicatorChannels; i++)
+        {
+            // electrode_colors[i*4+0] = 1.0f;
+            // electrode_colors[i*4+1] = 1.0f;
+            // electrode_colors[i*4+2] = 1.0f;
+            // electrode_colors[i*4+3] = 1.0f;
+            electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
+        }
+
+        kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+        eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+        eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+        // eegDisplayCS.SetFloats("MyColors", electrode_colors);
+        eegDisplayCS.SetInt("InputCount", indicatorChannels);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", electrodeDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+        electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+
+        Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
     }
 }
