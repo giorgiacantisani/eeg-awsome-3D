@@ -3,15 +3,19 @@
 #pragma kernel CSPlotBar
 #pragma kernel CSPlotFade
 
+#pragma kernel CSPlotPixelArray1D
+#pragma kernel CSPlotPixelArray2D
+
 // Create a RenderTexture with enableRandomWrite flag and set it with cs.SetTexture
 RWTexture2D<float4> Result;
 float4 Inputs[32]; // must be float4, can not be just array of float
 float4 InputsPrev[32]; // must be float4, can not be just array of float
-int InputCount;
+uint InputCount;
 int WriteX;
 int AmplitudeY;
 int OffsetY;
 float4 Color;
+float4 Colors[1024];
 int Invert;
 
 [numthreads(32,16,1)]
@@ -42,4 +46,29 @@ void CSPlotFade (uint3 id : SV_DispatchThreadID)
         Result[xy] += pow((id.y)/1024.0, 0.8);
     else
         Result[xy] *= pow(id.y/32.0, 0.5);
+}
+
+[numthreads(32,1,1)]
+void CSPlotPixelArray1D (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
+{
+    float4 col  = Colors[id.x];
+
+    int2 xy;
+    xy.x = WriteX;
+    xy.y = id.x;
+    if (id.x < InputCount)
+        Result[xy] = col;
+}
+
+uint PixelArrayWidth;
+[numthreads(32,16,1)]
+void CSPlotPixelArray2D (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
+{
+    float4 col  = Colors[id.x];
+
+    int2 xy;
+    xy.x = id.x / PixelArrayWidth;
+    xy.y = id.x % PixelArrayWidth;
+    if (id.x < InputCount)
+        Result[xy] = col;
 }
