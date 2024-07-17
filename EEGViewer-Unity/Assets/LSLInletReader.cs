@@ -52,6 +52,39 @@ public class LSLInletReader : MonoBehaviour
         "AF8"
         // A1
     };
+
+    private Vector3[] electrodePositions = new Vector3[] {
+        /*1 	AF7 */  new Vector3( 68.7f, 49.7f,  -5.96f),
+        /*2 	Fpz */  new Vector3(   85f,     0f, -1.79f),
+        /*3 	F7  */  new Vector3( 49.9f,	 68.4f,	-7.49f),
+        /*4 	Fz  */  new Vector3( 60.7f,	    0f,	 59.5f),
+        /*5 	T7  */  new Vector3(    0f,  84.5f,	-8.85f),
+        /*6 	FC6 */  new Vector3( 28.8f,	-76.2f,	 24.2f),
+        /*7 	Fp1 */  new Vector3( 80.8f,	 26.1f,	 -4.0f),
+        /*8 	F4  */  new Vector3( 57.6f, -48.1f,	 39.9f),
+        /*9	    C4  */  new Vector3(    0f, -63.2f,	 56.9f),
+        /*10	Oz  */  new Vector3(-85f,	    0f,	-1.79f),
+        /*11	CP6 */  new Vector3(-28.8f,	-76.2f,	 24.2f),
+        /*12	Cz  */  new Vector3(    0f,	    0f,    85f),
+        /*13	PO8 */  new Vector3(-68.7f, -49.7f,	-5.95f),
+        /*14	CP5 */  new Vector3(-28.8f,	 76.2f,	 24.2f),
+        /*15	O2  */  new Vector3(-80.8f,	-26.1f,	   -4f),
+        /*16	O1  */  new Vector3(-80.8f,	 26.1f,	   -4f),
+        /*17	P3  */  new Vector3(-57.6f,	 48.2f,	 39.9f),
+        /*18	P4  */  new Vector3(-57.6f,	-48.1f,	 39.9f),
+        /*19	P7  */  new Vector3(-49.9f,	 68.4f,	-7.49f),
+        /*20	P8  */  new Vector3(-49.9f,	-68.4f,	-7.49f),
+        /*21	Pz  */  new Vector3(-60.7f,	    0f,	 59.5f),
+        /*22	PO7 */  new Vector3(-68.7f,	 49.7f,	-5.96f),
+        /*23	T8  */  new Vector3(    0f, -84.5f,	-8.85f),
+        /*24	C3  */  new Vector3(    0f,  63.2f,	 56.9f),
+        /*25	Fp2 */  new Vector3( 80.8f,	-26.1f,	   -4f),
+        /*26	F3  */  new Vector3( 57.6f,	 48.2f,	 39.9f),
+        /*27	F8  */  new Vector3( 49.9f,	-68.4f,	-7.49f),
+        /*28	FC5 */  new Vector3( 28.8f,	 76.2f,	 24.2f),
+        /*29	AF8 */  new Vector3( 68.7f,	-49.7f,	-5.95f),
+        /*30	A1	*/  //new Vector3(    0f,  60.1f,	-60.1f),
+    };
     
     Electrode[] electrodeArray;
 
