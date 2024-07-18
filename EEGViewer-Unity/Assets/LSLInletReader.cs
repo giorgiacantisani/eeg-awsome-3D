@@ -497,7 +497,7 @@ public class LSLInletReader : MonoBehaviour
         if (computeFourier)
         {
             for (int i = 0; i < indicatorChannels; i++)
-                electrode_colors[i] = new Color(channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, 0f);
+                electrode_colors[i] = new Color(channels_eeg[i], channels_eeg[i], channels_eeg[i], 0f);
 
             kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
             eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);

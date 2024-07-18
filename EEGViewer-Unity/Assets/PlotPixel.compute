@@ -90,7 +90,7 @@ void CSFFT(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
     {
         uint2 xy = uint2((uint)(WriteX+q) % 32, id.x);
         float4 color = Result[xy];
-        float val = length(color.xyz);
+        float val = color.x*2-1;//length(color.xyz);
 
         float t = Time + DeltaTime * q;
         reComponent += val * cos(t * FreqStep*id.y * 2 * 3.14);
@@ -100,5 +100,7 @@ void CSFFT(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
     int2 xy;
     xy.y = id.x;
     xy.x = id.y;
-    ResultFFT[xy] = lerp(ResultFFT[xy], sqrt(reComponent*reComponent + imComponent*imComponent), ReactivityFFT);
+    float fftBand = sqrt(max(reComponent*reComponent + imComponent*imComponent, 0.01f));
+    float4 fftBandColor = lerp(float4(0.2,0,0,1), float4(0.8, 0.6, 0.7, 1), fftBand);
+    ResultFFT[xy] = lerp(ResultFFT[xy], fftBandColor, ReactivityFFT);
 }
