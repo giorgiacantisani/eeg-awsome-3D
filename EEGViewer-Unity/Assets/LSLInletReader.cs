@@ -7,14 +7,30 @@ public class LSLInletReader : MonoBehaviour
 {
     public Gradient electrodeColors;
     public bool useColorGradient = false;
-    public bool shortFourier = true;
+
+    public bool computeFourier = false;
+    public float computeFourierFreqStep = 1.0f;
+    public float computeFourierReactivity = 1.0f;
+
+
+    public bool shortFourier = false;
+    public float fourierReactivity = 0.1f;
+    public float fourierMultiplier = 1.0f;
 
     public bool movingAverage = true;
     public float movingAverageReactivity = 0.9f;
 
+    public float[] electrodeReA = new float[32];
+    public float[] electrodeReB = new float[32];
+    public float[] electrodeReC = new float[32];
+    public float[] electrodeImA = new float[32];
+    public float[] electrodeImB = new float[32];
+    public float[] electrodeImC = new float[32];
+
+
     public float[] electrodeColorA = new float[32];
-    // public float[] electrodeColorA = new float[32];
-    // public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorB = new float[32];
+    public float[] electrodeColorC = new float[32];
 
     public float EEGExpectedMean = 0.5f;
     public float EEGExpectedVariance = 0.25f;
@@ -23,7 +39,6 @@ public class LSLInletReader : MonoBehaviour
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                                             1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
-
 
     private string[] electrodes = new string[] {
         "AF7",
@@ -57,6 +72,39 @@ public class LSLInletReader : MonoBehaviour
         "AF8"
         // A1
     };
+
+    private Vector3[] electrodePositions = new Vector3[] {
+        /*1 	AF7 */  new Vector3( 68.7f, 49.7f,  -5.96f),
+        /*2 	Fpz */  new Vector3(   85f,     0f, -1.79f),
+        /*3 	F7  */  new Vector3( 49.9f,	 68.4f,	-7.49f),
+        /*4 	Fz  */  new Vector3( 60.7f,	    0f,	 59.5f),
+        /*5 	T7  */  new Vector3(    0f,  84.5f,	-8.85f),
+        /*6 	FC6 */  new Vector3( 28.8f,	-76.2f,	 24.2f),
+        /*7 	Fp1 */  new Vector3( 80.8f,	 26.1f,	 -4.0f),
+        /*8 	F4  */  new Vector3( 57.6f, -48.1f,	 39.9f),
+        /*9	    C4  */  new Vector3(    0f, -63.2f,	 56.9f),
+        /*10	Oz  */  new Vector3(-85f,	    0f,	-1.79f),
+        /*11	CP6 */  new Vector3(-28.8f,	-76.2f,	 24.2f),
+        /*12	Cz  */  new Vector3(    0f,	    0f,    85f),
+        /*13	PO8 */  new Vector3(-68.7f, -49.7f,	-5.95f),
+        /*14	CP5 */  new Vector3(-28.8f,	 76.2f,	 24.2f),
+        /*15	O2  */  new Vector3(-80.8f,	-26.1f,	   -4f),
+        /*16	O1  */  new Vector3(-80.8f,	 26.1f,	   -4f),
+        /*17	P3  */  new Vector3(-57.6f,	 48.2f,	 39.9f),
+        /*18	P4  */  new Vector3(-57.6f,	-48.1f,	 39.9f),
+        /*19	P7  */  new Vector3(-49.9f,	 68.4f,	-7.49f),
+        /*20	P8  */  new Vector3(-49.9f,	-68.4f,	-7.49f),
+        /*21	Pz  */  new Vector3(-60.7f,	    0f,	 59.5f),
+        /*22	PO7 */  new Vector3(-68.7f,	 49.7f,	-5.96f),
+        /*23	T8  */  new Vector3(    0f, -84.5f,	-8.85f),
+        /*24	C3  */  new Vector3(    0f,  63.2f,	 56.9f),
+        /*25	Fp2 */  new Vector3( 80.8f,	-26.1f,	   -4f),
+        /*26	F3  */  new Vector3( 57.6f,	 48.2f,	 39.9f),
+        /*27	F8  */  new Vector3( 49.9f,	-68.4f,	-7.49f),
+        /*28	FC5 */  new Vector3( 28.8f,	 76.2f,	 24.2f),
+        /*29	AF8 */  new Vector3( 68.7f,	-49.7f,	-5.95f),
+        /*30	A1	*/  //new Vector3(    0f,  60.1f,	-60.1f),
+    };
     
     Electrode[] electrodeArray;
 
@@ -84,10 +132,19 @@ public class LSLInletReader : MonoBehaviour
 
     public ComputeShader eegDisplayCS;
     public RenderTexture eegDisplayRT;
+    public RenderTexture electrodeDisplayRT;
+    public RenderTexture fftRT;
     int eegDisplayIndex = 0;
+    int electrodeDisplayIndex = 0;    
     float[] channels_eeg = new float[32];
     float[] channels_eeg_prev = new float[32];
+    Vector4[] electrode_colors = new Vector4[32*32];
+    // float[] electrode_colors = new float[32*32*4];
     
+
+    public int debugElectrode = -1;
+
+
     void Start()
     {               
         Debug.Log("Protocol version: " + LSL.LSL.protocol_version());
@@ -182,6 +239,19 @@ public class LSLInletReader : MonoBehaviour
             electrodeArray[i] = go.GetComponent<Electrode>();
             if (electrodeArray[i] == null)
                 Debug.LogError("Found object, but it has no Electrode component: " + electrodes[i]);
+
+            var indicator = electrodeArray[i].indicator;
+            if (indicator)
+                foreach (var r in indicator.GetComponentsInChildren<Renderer>())
+                {
+                    var props = new MaterialPropertyBlock();
+                    props.SetFloat("_Electrode", i);
+                    r.SetPropertyBlock(props);
+                    // var r = child.GetComponent<Renderer>();
+                    // if (r)
+                    // {
+                    // }
+                }
         }
     }
 
@@ -203,7 +273,8 @@ public class LSLInletReader : MonoBehaviour
             // string eegs = "eegs: ";
             for (int j = 0; j < samples_returned; j++)
             {
-                // double time = timestamp_buffer[j];
+                double time = timestamp_buffer[j];
+                // Debug.Log(time);
 
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
@@ -213,20 +284,46 @@ public class LSLInletReader : MonoBehaviour
 
                     if(shortFourier)
                     {
-                        // float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
-                        // float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
+                        float eeg = data_buffer[j,i];
 
-                        // electrodeColorA[i] = electrodeColorA[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+                        float reComponent = eeg * Mathf.Cos((float)time * 10f * 2f * 3.14f);
+                        float imComponent = eeg * Mathf.Sin((float)time * 10f * 2f * 3.14f);
+                        // electrodeReA[i] =  Mathf.Lerp(electrodeReA[i], reComponent, fourierReactivity);
+                        // electrodeImA[i] =  Mathf.Lerp(electrodeImA[i], imComponent, fourierReactivity);
+                        electrodeReA[i] =  electrodeReA[i]*fourierReactivity + reComponent;
+                        electrodeImA[i] =  electrodeImA[i]*fourierReactivity + imComponent;
+                        electrodeColorA[i] = fourierMultiplier * Mathf.Sqrt(electrodeReA[i] * electrodeReA[i] + electrodeImA[i] * electrodeImA[i]);
 
-                        // float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
-                        // float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+                        float reComponent2 = eeg * Mathf.Cos((float)time * 20f * 2f * 3.14f);
+                        float imComponent2 = eeg * Mathf.Sin((float)time * 20f * 2f * 3.14f);
+                        // electrodeReB[i] =  Mathf.Lerp(electrodeReB[i], reComponent2, fourierReactivity);
+                        // electrodeImB[i] =  Mathf.Lerp(electrodeImB[i], imComponent2, fourierReactivity);
+                        electrodeReB[i] =  electrodeReB[i]*fourierReactivity + reComponent2;
+                        electrodeImB[i] =  electrodeImB[i]*fourierReactivity + imComponent2;
+                        electrodeColorB[i] = fourierMultiplier * Mathf.Sqrt(electrodeReB[i] * electrodeReB[i] + electrodeImB[i] * electrodeImB[i]);
 
-                        // electrodeColorB[i] = electrodeColorB[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+                        float reComponent3 = eeg * Mathf.Cos((float)time * 40f * 2f * 3.14f);
+                        float imComponent3 = eeg * Mathf.Sin((float)time * 40f * 2f * 3.14f);
+                        // electrodeReC[i] =  Mathf.Lerp(electrodeReC[i], reComponent3, fourierReactivity);
+                        // electrodeImC[i] =  Mathf.Lerp(electrodeImC[i], imComponent3, fourierReactivity);
+                        electrodeReC[i] =  electrodeReC[i]*fourierReactivity + reComponent3;
+                        electrodeImC[i] =  electrodeImC[i]*fourierReactivity + imComponent3;
+                        electrodeColorC[i] = fourierMultiplier * Mathf.Sqrt(electrodeReC[i] * electrodeReC[i] + electrodeImC[i] * electrodeImC[i]);
 
-                        // float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
-                        // float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+                        // float reComponent = data_buffer[j,i] * Mathf.Cos((float)time * 10f * 2f * 3.14f);
+                        // float imComponent = data_buffer[j,i] * Mathf.Sin((float)time * 10f * 2f * 3.14f);
 
-                        // electrodeColorC[i] = electrodeColorC[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+                        // electrodeColorA[i] = Mathf.Lerp(electrodeColorA[i], Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent), fourierReactivity);
+
+                        // reComponent = data_buffer[j,i] * Mathf.Cos((float)time * 20f * 2f * 3.14f);
+                        // imComponent = data_buffer[j,i] * Mathf.Sin((float)time * 20f * 2f * 3.14f);
+
+                        // electrodeColorB[i] = Mathf.Lerp(electrodeColorB[i], Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent), fourierReactivity);
+
+                        // reComponent = data_buffer[j,i] * Mathf.Cos((float)time * 40f * 2f * 3.14f);
+                        // imComponent = data_buffer[j,i] * Mathf.Sin((float)time * 40f * 2f * 3.14f);
+
+                        // electrodeColorC[i] = Mathf.Lerp(electrodeColorC[i], Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent), fourierReactivity);
                     }
                     else if (movingAverage)
                     {
@@ -258,12 +355,15 @@ public class LSLInletReader : MonoBehaviour
 
                     // for now just take the last sample for each eeg channel
                     float eeg = data_buffer[samples_returned - 1, i];
-
                     eeg = Mathf.InverseLerp(channels_min[i], channels_max[i], eeg);
                     eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
 
                     // eegs += " " + eeg;
                     eeg *= electrodeAdjust[i];
+
+                    if (debugElectrode >= 0 && i != debugElectrode)
+                        eeg = 0;
+
                     // lerp color between red and greeen based on eeg value
                     if (electrodeArray[i])
                         electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
@@ -278,10 +378,46 @@ public class LSLInletReader : MonoBehaviour
         {
             for (int i = 0; i < electrodeArray.Length; i++)
             {
-                float eeg = Mathf.Sin(i + Time.time*i)/4 + 0.5f;// Random.Range(0.0f, 1.0f);
-                // float eeg = Random.Range(0.0f, 1.0f)*EEGExpectedVariance+EEGExpectedMean;
+                float eeg = Mathf.Sin(i + Time.time*i)/4 + 0.5f;
+                // float eeg = Mathf.Sin(Time.time * 2f * 2f * 3.14f);
+
+                if(shortFourier)
+                {
+                    double time = Time.time;
+
+                    float reComponent = eeg * Mathf.Cos((float)time * 10f * 2f * 3.14f);
+                    float imComponent = eeg * Mathf.Sin((float)time * 10f * 2f * 3.14f);
+                    // electrodeReA[i] =  Mathf.Lerp(electrodeReA[i], reComponent, fourierReactivity);
+                    // electrodeImA[i] =  Mathf.Lerp(electrodeImA[i], imComponent, fourierReactivity);
+                    electrodeReA[i] =  electrodeReA[i]*fourierReactivity + reComponent;
+                    electrodeImA[i] =  electrodeImA[i]*fourierReactivity + imComponent;
+                    electrodeColorA[i] = fourierMultiplier * Mathf.Sqrt(electrodeReA[i] * electrodeReA[i] + electrodeImA[i] * electrodeImA[i]);
+
+                    float reComponent2 = eeg * Mathf.Cos((float)time * 20f * 2f * 3.14f);
+                    float imComponent2 = eeg * Mathf.Sin((float)time * 20f * 2f * 3.14f);
+                    // electrodeReB[i] =  Mathf.Lerp(electrodeReB[i], reComponent2, fourierReactivity);
+                    // electrodeImB[i] =  Mathf.Lerp(electrodeImB[i], imComponent2, fourierReactivity);
+                    electrodeReB[i] =  electrodeReB[i]*fourierReactivity + reComponent2;
+                    electrodeImB[i] =  electrodeImB[i]*fourierReactivity + imComponent2;
+                    electrodeColorB[i] = fourierMultiplier * Mathf.Sqrt(electrodeReB[i] * electrodeReB[i] + electrodeImB[i] * electrodeImB[i]);
+
+                    float reComponent3 = eeg * Mathf.Cos((float)time * 40f * 2f * 3.14f);
+                    float imComponent3 = eeg * Mathf.Sin((float)time * 40f * 2f * 3.14f);
+                    // electrodeReC[i] =  Mathf.Lerp(electrodeReC[i], reComponent3, fourierReactivity);
+                    // electrodeImC[i] =  Mathf.Lerp(electrodeImC[i], imComponent3, fourierReactivity);
+                    electrodeReC[i] =  electrodeReC[i]*fourierReactivity + reComponent3;
+                    electrodeImC[i] =  electrodeImC[i]*fourierReactivity + imComponent3;
+                    electrodeColorC[i] = fourierMultiplier * Mathf.Sqrt(electrodeReC[i] * electrodeReC[i] + electrodeImC[i] * electrodeImC[i]);
+                }
+
                 eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
                 eeg *= electrodeAdjust[i];
+
+                // eeg = Mathf.Sin(Time.time*2);
+                // eeg = Random.Range(0.0f, 1.0f);
+
+                if (debugElectrode >= 0 && i != debugElectrode)
+                    eeg = 0;
                 // lerp color between red and greeen based on eeg value
                 if (electrodeArray[i])
                     electrodeArray[i].fx.GetComponent<Light>().color = MixEEGColors(eeg);
@@ -339,8 +475,99 @@ public class LSLInletReader : MonoBehaviour
         for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
 
-        // Debug.Log(electrodeColorA[5]);
-        // Debug.Log(electrodeColorB[5]);
-        // Debug.Log(electrodeColorC[5]);
+        
+        // Display electrode indicators
+        if (electrodeDisplayRT == null)
+        {
+            electrodeDisplayRT = new RenderTexture(32, 32, 24);
+            electrodeDisplayRT.enableRandomWrite = true;
+            electrodeDisplayRT.Create();
+        }
+        if (fftRT == null)
+        {
+            fftRT = new RenderTexture(32, 32, 24);
+            fftRT.enableRandomWrite = true;
+            fftRT.Create();
+        }
+
+        var indicatorChannels = electrodeArray.Length;
+        if (channel_count > 0)
+            indicatorChannels = Mathf.Min(indicatorChannels, channel_count);
+
+        if (computeFourier)
+        {
+            for (int i = 0; i < indicatorChannels; i++)
+                electrode_colors[i] = new Color(channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, 0f);
+
+            kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+            eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+            eegDisplayCS.SetInt("InputCount", indicatorChannels);
+            eegDisplayCS.SetTexture(kernelHandle, "Result", fftRT);
+            eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+            kernelHandle = eegDisplayCS.FindKernel("CSFFT");
+            eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetFloat("Time", Time.time);
+            eegDisplayCS.SetFloat("DeltaTime", Time.deltaTime);
+            eegDisplayCS.SetFloat("FreqStep", computeFourierFreqStep);
+            eegDisplayCS.SetFloat("ReactivityFFT", computeFourierReactivity);
+            eegDisplayCS.SetTexture(kernelHandle, "Result", fftRT);
+            eegDisplayCS.SetTexture(kernelHandle, "ResultFFT", electrodeDisplayRT);
+            eegDisplayCS.Dispatch(kernelHandle, 1, 1, 1);
+
+            electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+
+            // Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
+            Shader.SetGlobalInt("_WriteX", 0);
+
+        }
+        else if (!shortFourier)
+        {
+            for (int i = 0; i < indicatorChannels; i++)
+                electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
+
+            kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+            eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+            // eegDisplayCS.SetFloats("MyColors", electrode_colors);
+            eegDisplayCS.SetInt("InputCount", indicatorChannels);
+            eegDisplayCS.SetTexture(kernelHandle, "Result", electrodeDisplayRT);
+            eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+            electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+
+            Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
+        }
+        else
+        {
+            for (int q = 0; q < 32; q++)
+            {
+                var fftBand = 
+                    q<8 ? electrodeColorA :
+                    q<16 ? electrodeColorB :
+                    /*q == 2 ?*/ electrodeColorC;
+
+                var color = 
+                    q<8 ? electrodeColors.Evaluate(0f) :
+                    q<16 ? electrodeColors.Evaluate(0.5f)  :
+                    /*q == 2 ?*/ electrodeColors.Evaluate(1f) ;
+
+                for (int i = 0; i < indicatorChannels; i++)
+                    // electrode_colors[i] = MixEEGColors(fftBand[i]);
+                    electrode_colors[i] = fftBand[i] * color;
+
+                kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+                eegDisplayCS.SetInt("WriteX", q);
+                eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+                eegDisplayCS.SetInt("InputCount", indicatorChannels);
+                eegDisplayCS.SetTexture(kernelHandle, "Result", electrodeDisplayRT);
+                eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+                Shader.SetGlobalInt("_WriteX", q);
+            }
+
+            Shader.SetGlobalInt("_WriteX", 0);
+        }
     }
 }

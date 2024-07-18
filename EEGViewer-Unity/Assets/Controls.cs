@@ -7,6 +7,11 @@ public class Controls : MonoBehaviour
     public Renderer[] head;
     public GameObject[] setup1;
     public GameObject[] setup2;
+    public GameObject[] setup3;
+    public GameObject[] setup4;
+    public GameObject[] setup5;
+
+    public Camera[] camerasWithIndicatorsOffByDefault;
     
     float headCutoff = -7.0f;
 
@@ -44,19 +49,40 @@ public class Controls : MonoBehaviour
             }
         }
 
+        if (Input.GetKeyUp("space"))
+        {
+            foreach (var c in camerasWithIndicatorsOffByDefault)
+                c.cullingMask ^= 1 << 1;
+        }
+
         if (Input.GetKeyUp("1"))
         {
-            foreach (var go in setup1)
-                go.SetActive(true);
-            foreach (var go in setup2)
-                go.SetActive(false);
+            ActivateSetup(0);
         }
         else if (Input.GetKeyUp("2"))
         {
-            foreach (var go in setup1)
-                go.SetActive(false);
-            foreach (var go in setup2)
-                go.SetActive(true);
+            ActivateSetup(1);
+        }
+        else if (Input.GetKeyUp("3"))
+        {
+            ActivateSetup(2);
+        }
+        else if (Input.GetKeyUp("4"))
+        {
+            ActivateSetup(3);
+        }
+        else if (Input.GetKeyUp("5"))
+        {
+            ActivateSetup(4);
         }
     }
+
+    void ActivateSetup(int index)
+    {
+        var list = new[] {setup1, setup2, setup3, setup4, setup5};
+        for (var i = 0; i < list.Length; ++i)
+            if (i != index)
+                foreach (var go in list[i]) go.SetActive(false);
+        foreach (var go in list[index]) go.SetActive(true);
+   }
 }
