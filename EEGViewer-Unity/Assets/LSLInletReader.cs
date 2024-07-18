@@ -7,9 +7,14 @@ public class LSLInletReader : MonoBehaviour
 {
     public Gradient electrodeColors;
     public bool useColorGradient = false;
+    public bool shortFourier = true;
 
     public bool movingAverage = true;
     public float movingAverageReactivity = 0.9f;
+
+    public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorA = new float[32];
 
     public float EEGExpectedMean = 0.5f;
     public float EEGExpectedVariance = 0.25f;
@@ -238,7 +243,7 @@ public class LSLInletReader : MonoBehaviour
         if (useColorGradient)
             return electrodeColors.Evaluate(eeg/2.0f+0.5f);
         else
-            return Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
+            return .4f*Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
     }
 
     // Update is called once per frame
@@ -255,10 +260,28 @@ public class LSLInletReader : MonoBehaviour
 
                 for (int i = 0; i < electrodeArray.Length; i++)
                 {
+                    if(i==0)
                     if (i >= channel_count)
                         break;
 
-                    if (movingAverage)
+                    if(shortFourier)
+                    {
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 10f * 2f * 3.14f);
+
+                        electrodeColorA[i] = electrodeColorA[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+
+                        electrodeColorB[i] = electrodeColorB[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+
+                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+
+                        electrodeColorC[i] = electrodeColorC[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
+                    }
+                    else if (movingAverage)
                     {
                         var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
                         var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
@@ -376,38 +399,6 @@ public class LSLInletReader : MonoBehaviour
         eegDisplayIndex++; if (eegDisplayIndex >= eegDisplayRT.width) eegDisplayIndex = 0;
         for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
-        
-        // Display electrode indicators
-        if (electrodeDisplayRT == null)
-        {
-            electrodeDisplayRT = new RenderTexture(32, 32, 24);
-            electrodeDisplayRT.enableRandomWrite = true;
-            electrodeDisplayRT.Create();
-        }
 
-        var indicatorChannels = electrodeArray.Length;
-        if (channel_count > 0)
-            indicatorChannels = Mathf.Min(indicatorChannels, channel_count);
-
-        for (int i = 0; i < indicatorChannels; i++)
-        {
-            // electrode_colors[i*4+0] = 1.0f;
-            // electrode_colors[i*4+1] = 1.0f;
-            // electrode_colors[i*4+2] = 1.0f;
-            // electrode_colors[i*4+3] = 1.0f;
-            electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
-        }
-
-        kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
-        eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
-        eegDisplayCS.SetVectorArray("Colors", electrode_colors);
-        // eegDisplayCS.SetFloats("MyColors", electrode_colors);
-        eegDisplayCS.SetInt("InputCount", indicatorChannels);
-        eegDisplayCS.SetTexture(kernelHandle, "Result", electrodeDisplayRT);
-        eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
-
-        electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
-
-        Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
     }
 }
