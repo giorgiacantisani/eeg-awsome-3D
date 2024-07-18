@@ -4,15 +4,24 @@ using UnityEngine;
 
 public class Controls : MonoBehaviour
 {
+    public LSLInletReader lsl;
+
     public Renderer[] head;
     public GameObject[] setup1;
     public GameObject[] setup2;
     public GameObject[] setup3;
     public GameObject[] setup4;
     public GameObject[] setup5;
+    public GameObject[] setup6;
+    public GameObject[] setup7;
 
     public Camera[] camerasWithIndicatorsOffByDefault;
-    
+
+    public DisplayEEG displayEEG;
+    public RenderTexture eegDisplayRT;
+    public RenderTexture electrodeDisplayRT;
+    public RenderTexture fftRT;
+
     float headCutoff = -7.0f;
 
 
@@ -55,6 +64,13 @@ public class Controls : MonoBehaviour
                 c.cullingMask ^= 1 << 1;
         }
 
+        if (Input.GetKeyUp("z"))
+            displayEEG.eeg = eegDisplayRT;
+        if (Input.GetKeyUp("x"))
+            displayEEG.eeg = electrodeDisplayRT;
+        if (Input.GetKeyUp("c"))
+            displayEEG.eeg = fftRT;
+
         if (Input.GetKeyUp("1"))
         {
             ActivateSetup(0);
@@ -75,11 +91,31 @@ public class Controls : MonoBehaviour
         {
             ActivateSetup(4);
         }
+        else if (Input.GetKeyUp("6"))
+        {
+            ActivateSetup(5);
+        }
+        else if (Input.GetKeyUp("7"))
+        {
+            ActivateSetup(6);
+        }
+
+        if (Input.GetKeyUp("5"))
+        {
+            lsl.computeFourier = false;
+            lsl.shortFourier = true;
+        }
+        else if (Input.GetKeyUp("6"))
+        {
+            lsl.computeFourier = true;
+            lsl.shortFourier = false;
+            displayEEG.eeg = electrodeDisplayRT;
+        }
     }
 
     void ActivateSetup(int index)
     {
-        var list = new[] {setup1, setup2, setup3, setup4, setup5};
+        var list = new[] {setup1, setup2, setup3, setup4, setup5, setup6, setup7};
         for (var i = 0; i < list.Length; ++i)
             if (i != index)
                 foreach (var go in list[i]) go.SetActive(false);

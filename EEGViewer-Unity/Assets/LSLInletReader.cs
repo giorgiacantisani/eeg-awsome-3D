@@ -258,7 +258,7 @@ public class LSLInletReader : MonoBehaviour
     Color MixEEGColors(float eeg)
     {
         if (useColorGradient)
-            return electrodeColors.Evaluate(eeg/2.0f+0.5f);
+            return electrodeColors.Evaluate(eeg/2.0f+0.5f) * 0.5f;
         else
             return .4f*Color.Lerp(Color.red, Color.green, eeg/2.0f+0.5f);
     }
@@ -282,9 +282,31 @@ public class LSLInletReader : MonoBehaviour
                     if (i >= channel_count)
                         break;
 
+                    if (movingAverage)
+                    {
+                        var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
+                        var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
+                        if (channels_max[i] < -65535)
+                            channels_max[i] = max;
+                        else                  
+                            channels_max[i] = Mathf.Lerp(channels_max[i], max, movingAverageReactivity);
+                        if (channels_min[i] > 65535)
+                            channels_min[i] = min;
+                        else                  
+                            channels_min[i] = Mathf.Lerp(channels_min[i], min, movingAverageReactivity);      
+                    }
+                    else
+                    {
+                        channels_max[i] = Mathf.Max(channels_max[i], data_buffer[j, i]);
+                        channels_min[i] = Mathf.Min(channels_min[i], data_buffer[j, i]);
+                    }
+
+
                     if(shortFourier)
                     {
                         float eeg = data_buffer[j,i];
+                        eeg = Mathf.InverseLerp(channels_min[i], channels_max[i], eeg);
+                        eeg = (eeg - EEGExpectedMean) / EEGExpectedVariance;
 
                         float reComponent = eeg * Mathf.Cos((float)time * 10f * 2f * 3.14f);
                         float imComponent = eeg * Mathf.Sin((float)time * 10f * 2f * 3.14f);
@@ -324,24 +346,6 @@ public class LSLInletReader : MonoBehaviour
                         // imComponent = data_buffer[j,i] * Mathf.Sin((float)time * 40f * 2f * 3.14f);
 
                         // electrodeColorC[i] = Mathf.Lerp(electrodeColorC[i], Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent), fourierReactivity);
-                    }
-                    else if (movingAverage)
-                    {
-                        var max = Mathf.Max(channels_max[i], data_buffer[j, i]);
-                        var min = Mathf.Min(channels_min[i], data_buffer[j, i]);
-                        if (channels_max[i] < -65535)
-                            channels_max[i] = max;
-                        else                  
-                            channels_max[i] = Mathf.Lerp(channels_max[i], max, movingAverageReactivity);
-                        if (channels_min[i] > 65535)
-                            channels_min[i] = min;
-                        else                  
-                            channels_min[i] = Mathf.Lerp(channels_min[i], min, movingAverageReactivity);      
-                    }
-                    else
-                    {
-                        channels_max[i] = Mathf.Max(channels_max[i], data_buffer[j, i]);
-                        channels_min[i] = Mathf.Min(channels_min[i], data_buffer[j, i]);
                     }
                 }
             }
@@ -508,6 +512,7 @@ public class LSLInletReader : MonoBehaviour
 
             kernelHandle = eegDisplayCS.FindKernel("CSFFT");
             eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetInt("FFTBands", fftRT.width);
             eegDisplayCS.SetFloat("Time", Time.time);
             eegDisplayCS.SetFloat("DeltaTime", Time.deltaTime);
             eegDisplayCS.SetFloat("FreqStep", computeFourierFreqStep);
@@ -516,11 +521,10 @@ public class LSLInletReader : MonoBehaviour
             eegDisplayCS.SetTexture(kernelHandle, "ResultFFT", electrodeDisplayRT);
             eegDisplayCS.Dispatch(kernelHandle, 1, 1, 1);
 
-            electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+            electrodeDisplayIndex++; if (electrodeDisplayIndex >= fftRT.width) electrodeDisplayIndex = 0;
 
             // Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
             Shader.SetGlobalInt("_WriteX", 0);
-
         }
         else if (!shortFourier)
         {
