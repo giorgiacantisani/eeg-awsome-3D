@@ -13,8 +13,8 @@ public class LSLInletReader : MonoBehaviour
     public float movingAverageReactivity = 0.9f;
 
     public float[] electrodeColorA = new float[32];
-    public float[] electrodeColorA = new float[32];
-    public float[] electrodeColorA = new float[32];
+    public float[] electrodeColorB = new float[32];
+    public float[] electrodeColorC = new float[32];
 
     public float EEGExpectedMean = 0.5f;
     public float EEGExpectedVariance = 0.25f;
@@ -271,13 +271,13 @@ public class LSLInletReader : MonoBehaviour
 
                         electrodeColorA[i] = electrodeColorA[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
 
-                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
-                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+                        reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
+                        imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 20f * 2f * 3.14f);
 
                         electrodeColorB[i] = electrodeColorB[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
 
-                        float reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
-                        float imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+                        reComponent = data_buffer[j,i] * Mathf.Cos((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
+                        imComponent = data_buffer[j,i] * Mathf.Sin((float)timestamp_buffer[j] * 40f * 2f * 3.14f);
 
                         electrodeColorC[i] = electrodeColorC[i]*0.9f + Mathf.Sqrt(reComponent * reComponent + imComponent * imComponent);
                     }
