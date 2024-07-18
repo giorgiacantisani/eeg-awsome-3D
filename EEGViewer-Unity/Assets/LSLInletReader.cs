@@ -7,7 +7,13 @@ public class LSLInletReader : MonoBehaviour
 {
     public Gradient electrodeColors;
     public bool useColorGradient = false;
-    public bool shortFourier = true;
+
+    public bool computeFourier = false;
+    public float computeFourierFreqStep = 1.0f;
+    public float computeFourierReactivity = 1.0f;
+
+
+    public bool shortFourier = false;
     public float fourierReactivity = 0.1f;
     public float fourierMultiplier = 1.0f;
 
@@ -127,6 +133,7 @@ public class LSLInletReader : MonoBehaviour
     public ComputeShader eegDisplayCS;
     public RenderTexture eegDisplayRT;
     public RenderTexture electrodeDisplayRT;
+    public RenderTexture fftRT;
     int eegDisplayIndex = 0;
     int electrodeDisplayIndex = 0;    
     float[] channels_eeg = new float[32];
@@ -476,22 +483,50 @@ public class LSLInletReader : MonoBehaviour
             electrodeDisplayRT.enableRandomWrite = true;
             electrodeDisplayRT.Create();
         }
+        if (fftRT == null)
+        {
+            fftRT = new RenderTexture(32, 32, 24);
+            fftRT.enableRandomWrite = true;
+            fftRT.Create();
+        }
 
         var indicatorChannels = electrodeArray.Length;
         if (channel_count > 0)
             indicatorChannels = Mathf.Min(indicatorChannels, channel_count);
 
-        for (int i = 0; i < indicatorChannels; i++)
+        if (computeFourier)
         {
-            // electrode_colors[i*4+0] = 1.0f;
-            // electrode_colors[i*4+1] = 1.0f;
-            // electrode_colors[i*4+2] = 1.0f;
-            // electrode_colors[i*4+3] = 1.0f;
-            electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
-        }
+            for (int i = 0; i < indicatorChannels; i++)
+                electrode_colors[i] = new Color(channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, channels_eeg[i]*2f-1f, 0f);
 
-        if (!shortFourier)
+            kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+            eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+            eegDisplayCS.SetInt("InputCount", indicatorChannels);
+            eegDisplayCS.SetTexture(kernelHandle, "Result", fftRT);
+            eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+            kernelHandle = eegDisplayCS.FindKernel("CSFFT");
+            eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+            eegDisplayCS.SetFloat("Time", Time.time);
+            eegDisplayCS.SetFloat("DeltaTime", Time.deltaTime);
+            eegDisplayCS.SetFloat("FreqStep", computeFourierFreqStep);
+            eegDisplayCS.SetFloat("ReactivityFFT", computeFourierReactivity);
+            eegDisplayCS.SetTexture(kernelHandle, "Result", fftRT);
+            eegDisplayCS.SetTexture(kernelHandle, "ResultFFT", electrodeDisplayRT);
+            eegDisplayCS.Dispatch(kernelHandle, 1, 1, 1);
+
+            electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+
+            // Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
+            Shader.SetGlobalInt("_WriteX", 0);
+
+        }
+        else if (!shortFourier)
         {
+            for (int i = 0; i < indicatorChannels; i++)
+                electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
+
             kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
             eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
             eegDisplayCS.SetVectorArray("Colors", electrode_colors);

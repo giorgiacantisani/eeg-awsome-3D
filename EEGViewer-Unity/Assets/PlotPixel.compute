@@ -6,8 +6,11 @@
 #pragma kernel CSPlotPixelArray1D
 #pragma kernel CSPlotPixelArray2D
 
+#pragma kernel CSFFT
+
 // Create a RenderTexture with enableRandomWrite flag and set it with cs.SetTexture
 RWTexture2D<float4> Result;
+RWTexture2D<float4> ResultFFT;
 float4 Inputs[32]; // must be float4, can not be just array of float
 float4 InputsPrev[32]; // must be float4, can not be just array of float
 uint InputCount;
@@ -71,4 +74,31 @@ void CSPlotPixelArray2D (uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
     xy.y = id.x % PixelArrayWidth;
     if (id.x < InputCount)
         Result[xy] = col;
+}
+
+
+float Time;
+float DeltaTime;
+float FreqStep;
+float ReactivityFFT;
+[numthreads(32,32,1)]
+void CSFFT(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID)
+{
+    float reComponent = 0;
+    float imComponent = 0;
+    for (int q = 0; q < 32; ++q)
+    {
+        uint2 xy = uint2((uint)(WriteX+q) % 32, id.x);
+        float4 color = Result[xy];
+        float val = length(color.xyz);
+
+        float t = Time + DeltaTime * q;
+        reComponent += val * cos(t * FreqStep*id.y * 2 * 3.14);
+        imComponent += val * sin(t * FreqStep*id.y * 2 * 3.14);        
+    }
+
+    int2 xy;
+    xy.y = id.x;
+    xy.x = id.y;
+    ResultFFT[xy] = lerp(ResultFFT[xy], sqrt(reComponent*reComponent + imComponent*imComponent), ReactivityFFT);
 }

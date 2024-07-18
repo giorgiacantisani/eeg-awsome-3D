@@ -3427,6 +3427,9 @@ MonoBehaviour:
     m_NumColorKeys: 3
     m_NumAlphaKeys: 2
   useColorGradient: 0
+  computeFourier: 0
+  computeFourierFreqStep: 1
+  computeFourierReactivity: 1
   shortFourier: 0
   fourierReactivity: 0.99
   fourierMultiplier: 0.1
@@ -3773,6 +3776,7 @@ MonoBehaviour:
   eegDisplayCS: {fileID: 7200000, guid: 99ff3af921d524daabeaabb07695a058, type: 3}
   eegDisplayRT: {fileID: 8400000, guid: 0b572173504cb47f0b3d4607fef370d5, type: 2}
   electrodeDisplayRT: {fileID: 8400000, guid: 42db739c862fd4c389de0045011776c6, type: 2}
+  fftRT: {fileID: 8400000, guid: 239656fd9b2ed495e88c99e02ea6f49b, type: 2}
   debugElectrode: -1
 --- !u!1001 &1429207323
 PrefabInstance:
