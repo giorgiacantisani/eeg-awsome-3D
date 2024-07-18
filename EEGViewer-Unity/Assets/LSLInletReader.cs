@@ -400,5 +400,38 @@ public class LSLInletReader : MonoBehaviour
         for (int i = 0; i < displayChannels; i++)
             channels_eeg_prev[i] = channels_eeg[i];
 
+        
+        // Display electrode indicators
+        if (electrodeDisplayRT == null)
+        {
+            electrodeDisplayRT = new RenderTexture(32, 32, 24);
+            electrodeDisplayRT.enableRandomWrite = true;
+            electrodeDisplayRT.Create();
+        }
+
+        var indicatorChannels = electrodeArray.Length;
+        if (channel_count > 0)
+            indicatorChannels = Mathf.Min(indicatorChannels, channel_count);
+
+        for (int i = 0; i < indicatorChannels; i++)
+        {
+            // electrode_colors[i*4+0] = 1.0f;
+            // electrode_colors[i*4+1] = 1.0f;
+            // electrode_colors[i*4+2] = 1.0f;
+            // electrode_colors[i*4+3] = 1.0f;
+            electrode_colors[i] = MixEEGColors(channels_eeg[i]*2f-1f);
+        }
+
+        kernelHandle = eegDisplayCS.FindKernel("CSPlotPixelArray1D");
+        eegDisplayCS.SetInt("WriteX", electrodeDisplayIndex);
+        eegDisplayCS.SetVectorArray("Colors", electrode_colors);
+        // eegDisplayCS.SetFloats("MyColors", electrode_colors);
+        eegDisplayCS.SetInt("InputCount", indicatorChannels);
+        eegDisplayCS.SetTexture(kernelHandle, "Result", electrodeDisplayRT);
+        eegDisplayCS.Dispatch(kernelHandle, electrodeDisplayRT.height/32, 1, 1);
+
+        electrodeDisplayIndex++; if (electrodeDisplayIndex >= electrodeDisplayRT.width) electrodeDisplayIndex = 0;
+
+        Shader.SetGlobalInt("_WriteX", electrodeDisplayIndex);
     }
 }
