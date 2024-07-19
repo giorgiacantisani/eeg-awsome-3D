@@ -164,3 +164,4 @@ cython_debug/
 # Stupid Mac OS X trash files
 *.DS_Store
 *.bdf
+*.mp4
